@@ -2,20 +2,22 @@ package smartctl
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
-
-	"github.com/j-vizcaino/datadog-smartctl/exec"
 )
 
-func TestQueryDevice(t *testing.T) {
-	t.Run("should work with SATA HDD", func(t *testing.T) {
-		smartCtlCommand = func(d string) *exec.Command {
-			require.Equal(t, "/dev/sdc", d)
-			return exec.NewCommand("cat", "testdata/smartctl-output-wd-red.json")
-		}
+func runCat(testfile string) (Data, error) {
+	cmd := NewCommand()
+	cmd.smartctlArgs = nil
+	cmd.smartctlBinary = "cat"
 
-		data, err := QueryDevice("/dev/sdc")
+	return cmd.QueryDevice(testfile)
+}
+
+func TestCommand_QueryDevice(t *testing.T) {
+	t.Run("should work with SATA HDD", func(t *testing.T) {
+		data, err := runCat("testdata/smartctl-output-wd-red.json")
 		require.NoError(t, err)
 
 		expected := Data{
@@ -85,12 +87,7 @@ func TestQueryDevice(t *testing.T) {
 	})
 
 	t.Run("should work with SATA SSD", func(t *testing.T) {
-		smartCtlCommand = func(d string) *exec.Command {
-			require.Equal(t, "/dev/sdb", d)
-			return exec.NewCommand("cat", "testdata/smartctl-output-ct240bx.json")
-		}
-
-		data, err := QueryDevice("/dev/sdb")
+		data, err := runCat("testdata/smartctl-output-ct240bx.json")
 		require.NoError(t, err)
 
 		expected := Data{
@@ -150,12 +147,7 @@ func TestQueryDevice(t *testing.T) {
 	})
 
 	t.Run("should work with NVMe data", func(t *testing.T) {
-		smartCtlCommand = func(d string) *exec.Command {
-			require.Equal(t, "/dev/nvme0n1", d)
-			return exec.NewCommand("cat", "testdata/smartctl-output-nvme.json")
-		}
-
-		data, err := QueryDevice("/dev/nvme0n1")
+		data, err := runCat("testdata/smartctl-output-nvme.json")
 		require.NoError(t, err)
 
 		expected := Data{
@@ -188,5 +180,35 @@ func TestQueryDevice(t *testing.T) {
 			},
 		}
 		require.Equal(t, expected, data)
+	})
+
+	t.Run("should surface smartctl errors", func(t *testing.T) {
+		cmd := NewCommand()
+		cmd.smartctlBinary = "cat"
+		cmd.smartctlArgs = []string{"testdata/smartctl-output-error-perm.json", ";", "exit"}
+		cmd.timeout = 100 * time.Millisecond
+
+		// cat ...; exit 2
+		data, err := cmd.QueryDevice("2")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "Smartctl open device: /dev/sdb [SAT] failed: Permission denied")
+
+		require.Equal(t, Data{}, data)
+	})
+
+	t.Run("should implement command timeout", func(t *testing.T) {
+		cmd := NewCommand()
+		cmd.smartctlBinary = "sleep"
+		cmd.smartctlArgs = nil
+		cmd.timeout = 100 * time.Millisecond
+
+		// sleep 5
+		startDate := time.Now()
+		data, err := cmd.QueryDevice("5")
+		elapsed := time.Since(startDate)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "signal: killed")
+		require.Less(t, elapsed, 4*time.Second)
+		require.Equal(t, Data{}, data)
 	})
 }
