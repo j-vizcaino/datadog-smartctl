@@ -1,6 +1,7 @@
 package smartctl
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -8,11 +9,10 @@ import (
 )
 
 func runCat(testfile string) (Data, error) {
-	cmd := NewCommand()
+	cmd := NewCommand(WithSmartctlBinary("cat"))
 	cmd.smartctlArgs = nil
-	cmd.smartctlBinary = "cat"
 
-	return cmd.QueryDevice(testfile)
+	return cmd.QueryDevice(context.Background(), testfile)
 }
 
 func TestCommand_QueryDevice(t *testing.T) {
@@ -183,13 +183,14 @@ func TestCommand_QueryDevice(t *testing.T) {
 	})
 
 	t.Run("should surface smartctl errors", func(t *testing.T) {
-		cmd := NewCommand()
-		cmd.smartctlBinary = "cat"
+		cmd := NewCommand(
+			WithTimeout(100*time.Millisecond),
+			WithSmartctlBinary("cat"),
+		)
 		cmd.smartctlArgs = []string{"testdata/smartctl-output-error-perm.json", ";", "exit"}
-		cmd.timeout = 100 * time.Millisecond
 
 		// cat ...; exit 2
-		data, err := cmd.QueryDevice("2")
+		data, err := cmd.QueryDevice(context.Background(), "2")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "Smartctl open device: /dev/sdb [SAT] failed: Permission denied")
 
@@ -197,14 +198,15 @@ func TestCommand_QueryDevice(t *testing.T) {
 	})
 
 	t.Run("should implement command timeout", func(t *testing.T) {
-		cmd := NewCommand()
-		cmd.smartctlBinary = "sleep"
+		cmd := NewCommand(
+			WithTimeout(100*time.Millisecond),
+			WithSmartctlBinary("sleep"),
+		)
 		cmd.smartctlArgs = nil
-		cmd.timeout = 100 * time.Millisecond
 
 		// sleep 5
 		startDate := time.Now()
-		data, err := cmd.QueryDevice("5")
+		data, err := cmd.QueryDevice(context.Background(), "5")
 		elapsed := time.Since(startDate)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "signal: killed")

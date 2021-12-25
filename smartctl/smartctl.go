@@ -22,18 +22,41 @@ type Command struct {
 
 type CommandOption func(*Command)
 
-func NewCommand() *Command {
+func WithSudoEnabled() CommandOption {
+	return func(c *Command) {
+		c.useSudo = true
+	}
+}
+
+func WithTimeout(t time.Duration) CommandOption {
+	return func(c *Command) {
+		c.timeout = t
+	}
+}
+
+func WithSmartctlBinary(binaryPath string) CommandOption {
+	return func(c *Command) {
+		c.smartctlBinary = binaryPath
+	}
+}
+
+func NewCommand(opts ...CommandOption) *Command {
 	cmd := &Command{
 		smartctlBinary: "smartctl",
 		smartctlArgs:   []string{"--json", "-x"},
 		useSudo:        false,
 		timeout:        DefaultCommandTimeout,
 	}
+
+	for _, setOption := range opts {
+		setOption(cmd)
+	}
+
 	return cmd
 }
 
-func (c *Command) QueryDevice(device string) (Data, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
+func (c *Command) QueryDevice(ctx context.Context, device string) (Data, error) {
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 
 	binary := c.smartctlBinary
