@@ -13,15 +13,15 @@ type Converter struct {
 	extractors   []metricsExtractor
 }
 
-type ConverterOption func(converter *Converter)
+type Option func(converter *Converter)
 
-func WithTags(tagNames ...string) ConverterOption {
+func WithTags(tagNames ...string) Option {
 	return func(c *Converter) {
 		c.commonTags = tagNames
 	}
 }
 
-func WithATASmartAttributes(entries ...string) ConverterOption {
+func WithATASmartAttributes(entries ...string) Option {
 	const prefix = "ata_smart_attributes."
 	return func(c *Converter) {
 		c.extractors = append(c.extractors,
@@ -32,7 +32,7 @@ func WithATASmartAttributes(entries ...string) ConverterOption {
 	}
 }
 
-func WithATADeviceStats(entries ...string) ConverterOption {
+func WithATADeviceStats(entries ...string) Option {
 	const prefix = "ata_device_stats."
 	return func(c *Converter) {
 		c.extractors = append(c.extractors,
@@ -43,7 +43,7 @@ func WithATADeviceStats(entries ...string) ConverterOption {
 	}
 }
 
-func WithNVMeHealthInfo(entries ...string) ConverterOption {
+func WithNVMeHealthInfo(entries ...string) Option {
 	const prefix = "nvme_health."
 	return func(c *Converter) {
 		c.extractors = append(c.extractors,
@@ -54,7 +54,7 @@ func WithNVMeHealthInfo(entries ...string) ConverterOption {
 	}
 }
 
-func New(metricPrefix string, opts ...ConverterOption) *Converter {
+func New(metricPrefix string, opts ...Option) *Converter {
 	c := &Converter{
 		metricPrefix: strings.Trim(metricPrefix, ".") + ".",
 	}
