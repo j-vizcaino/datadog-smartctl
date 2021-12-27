@@ -12,3 +12,5 @@
 *.out
 
 .idea/
+datadog-smartctl
+datadog-smartctl.yaml
