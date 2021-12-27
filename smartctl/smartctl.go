@@ -43,7 +43,7 @@ func WithSmartctlBinary(binaryPath string) CommandOption {
 func NewCommand(opts ...CommandOption) *Command {
 	cmd := &Command{
 		smartctlBinary: "smartctl",
-		smartctlArgs:   []string{"--json", "-x"},
+		smartctlArgs:   []string{"-i", "-A", "-l", "devstat", "--json=c"},
 		useSudo:        false,
 		timeout:        DefaultCommandTimeout,
 	}

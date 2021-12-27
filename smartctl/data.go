@@ -80,6 +80,10 @@ func extractATASmartAttributes(m objx.Map) map[string]int {
 }
 
 func extractATADeviceStats(m objx.Map) map[string]int {
+	if !m.Has("ata_device_statistics") {
+		return nil
+	}
+
 	out := make(map[string]int)
 	m.Get("ata_device_statistics.pages").EachObjxMap(func(_ int, page objx.Map) bool {
 		if !page.Has("table") {
