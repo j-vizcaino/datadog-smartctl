@@ -44,6 +44,7 @@ func (p *Poller) Stop() {
 
 func (p *Poller) periodicPoll(ctx context.Context, pollingInterval time.Duration) {
 	run := true
+	p.pollAndReport(ctx)
 	for run {
 		select {
 		case <-time.After(pollingInterval):
