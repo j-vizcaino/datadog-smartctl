@@ -3,14 +3,16 @@ package main
 import (
 	"context"
 
+	"github.com/DataDog/datadog-go/statsd"
 	"github.com/rs/zerolog/log"
 
 	"github.com/j-vizcaino/datadog-smartctl/converter"
 	"github.com/j-vizcaino/datadog-smartctl/poller"
 	"github.com/j-vizcaino/datadog-smartctl/smartctl"
+	"github.com/j-vizcaino/datadog-smartctl/submitter"
 )
 
-func getDataTranslator(cfg Config, devConfig DeviceConfig) poller.OnNewDataFunc {
+func getDataTranslator(cfg Config, devConfig DeviceConfig, submit *submitter.Submitter) poller.OnNewDataFunc {
 	conv := converter.New(
 		cfg.MetricPrefix,
 		converter.WithTags(cfg.DeviceTags...),
@@ -21,7 +23,7 @@ func getDataTranslator(cfg Config, devConfig DeviceConfig) poller.OnNewDataFunc 
 
 	return func(ctx context.Context, data smartctl.Data) {
 		metrics := conv.Convert(data)
-		log.Info().Interface("metrics", metrics).Send()
+		submit.Update(ctx, metrics)
 	}
 }
 
@@ -45,6 +47,28 @@ func getDeviceQuerier(cfg Config) poller.QueryDeviceFunc {
 		}
 		return data, err
 	}
+}
+
+func submitErrorLog(err error) {
+	log.Warn().Err(err).Msg("Submitter error")
+}
+
+func getSubmitter() (*submitter.Submitter, func()) {
+	statsdClient, err := statsd.NewBuffered("localhost:8125", 32)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to initialize statsd client")
+	}
+	s := submitter.New(statsdClient, submitErrorLog)
+	stop := func() {
+		s.Stop()
+		if err := statsdClient.Flush(); err != nil {
+			log.Warn().Err(err).Msg("statsd client flush failed")
+		}
+		if err := statsdClient.Close(); err != nil {
+			log.Warn().Err(err).Msg("statsd client close operation failed")
+		}
+	}
+	return s, stop
 }
 
 /*

@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"os/signal"
+	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -17,11 +18,14 @@ func main() {
 	cfg := MustLoadValidConfig("datadog-smartctl.yaml")
 
 	queryFunc := getDeviceQuerier(cfg)
+	submitter, submitterStop := getSubmitter()
+	submitter.Run(5 * time.Second)
+
 	appCtx, abort := context.WithCancel(context.Background())
 	// queryFunc := testDeviceQuery()
 	var pollers []*poller.Poller
 	for _, dev := range cfg.Devices {
-		p := poller.New(queryFunc, getDataTranslator(cfg, dev), dev.Path)
+		p := poller.New(queryFunc, getDataTranslator(cfg, dev, submitter), dev.Path)
 		log.Info().
 			Str("device", dev.Path).
 			Dur("interval", cfg.PollingInterval).
@@ -36,6 +40,7 @@ func main() {
 	for _, p := range pollers {
 		p.Stop()
 	}
+	submitterStop()
 }
 
 func waitForSignal() {

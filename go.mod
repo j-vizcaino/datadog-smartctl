@@ -10,6 +10,7 @@ require (
 )
 
 require (
+	github.com/DataDog/datadog-go v4.8.3+incompatible // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 )
