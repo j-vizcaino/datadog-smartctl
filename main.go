@@ -6,6 +6,7 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/mattn/go-isatty"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
@@ -13,7 +14,7 @@ import (
 )
 
 func main() {
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout}).With().Timestamp().Logger()
+	setupPrettyLogger()
 
 	cfg := MustLoadValidConfig("datadog-smartctl.yaml")
 
@@ -48,4 +49,15 @@ func waitForSignal() {
 	signal.Notify(sigChan, os.Interrupt)
 	sig := <-sigChan
 	log.Info().Str("signal", sig.String()).Msg("Caught signal, exiting")
+}
+
+func setupPrettyLogger() {
+	if !isatty.IsTerminal(os.Stdout.Fd()) {
+		return
+	}
+	w := zerolog.ConsoleWriter{
+		Out:        os.Stdout,
+		TimeFormat: "15:04:05",
+	}
+	log.Logger = log.Output(w).With().Timestamp().Logger()
 }
