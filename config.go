@@ -9,6 +9,8 @@ import (
 
 	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v3"
+
+	"github.com/j-vizcaino/datadog-smartctl/converter"
 )
 
 var defaultConfig = Config{
@@ -56,12 +58,15 @@ func MustLoadValidConfig(filename string) Config {
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to load configuration")
 	}
-	err = cfg.Validate()
-	if err != nil {
-		log.Fatal().
-			Err(err).
+	cfgErrors := cfg.Errors()
+	for _, err := range cfgErrors {
+		log.Error().
+			Err(errors.New(err)).
 			Str("filename", filename).
 			Msg("Configuration is invalid")
+	}
+	if len(cfgErrors) > 0 {
+		log.Fatal().Msg("Configuration is invalid, aborting application")
 	}
 	return cfg
 }
@@ -81,7 +86,7 @@ func LoadConfig(filename string) (Config, error) {
 	return cfg, nil
 }
 
-func (c Config) Validate() error {
+func (c Config) Errors() []string {
 	var errorList []string
 	addErr := func(format string, args ...interface{}) {
 		errorList = append(errorList, fmt.Sprintf(format, args...))
@@ -103,6 +108,8 @@ func (c Config) Validate() error {
 	addErrIf(c.Statsd.ReportInterval < time.Second,
 		"statsd report interval must be at least one second (got %s)",
 		c.Statsd.ReportInterval.String())
+	unknownTags := converter.UnknownTags(c.Statsd.DeviceTags)
+	addErrIf(len(unknownTags) > 0, "unknown device tags %s", strings.Join(unknownTags, ", "))
 
 	for idx, dev := range c.Devices {
 		if dev.Path == "" {
@@ -119,9 +126,5 @@ func (c Config) Validate() error {
 			"device %s cannot specify both ATA and NVMe metrics",
 			dev.Path)
 	}
-
-	if len(errorList) == 0 {
-		return nil
-	}
-	return errors.New(strings.Join(errorList, ", "))
+	return errorList
 }
