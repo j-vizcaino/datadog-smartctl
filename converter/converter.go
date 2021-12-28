@@ -1,15 +1,22 @@
 package converter
 
 import (
+	"reflect"
 	"strings"
+
+	"github.com/scylladb/go-set/strset"
 
 	"github.com/j-vizcaino/datadog-smartctl/metric"
 	"github.com/j-vizcaino/datadog-smartctl/smartctl"
 )
 
+func init() {
+	populateSupportedTags()
+}
+
 type Converter struct {
 	metricPrefix string
-	commonTags   []string
+	commonTags   *strset.Set
 	extractors   []metricsExtractor
 }
 
@@ -17,7 +24,7 @@ type Option func(converter *Converter)
 
 func WithTags(tagNames ...string) Option {
 	return func(c *Converter) {
-		c.commonTags = tagNames
+		c.commonTags = strset.New(tagNames...)
 	}
 }
 
@@ -80,26 +87,20 @@ func (c *Converter) Convert(data smartctl.Data) metric.DeviceMetrics {
 }
 
 func (c *Converter) extractTags(data smartctl.Data) []string {
-	tags := make([]string, 0, len(c.commonTags))
-	addTag := func(name, value string) {
-		tags = append(tags, name+":"+value)
-	}
-	for _, entry := range c.commonTags {
-		switch entry {
-		case "device_name":
-			addTag("device_name", data.Device.Name)
-		case "device_protocol":
-			addTag("device_protocol", data.Device.Protocol)
-		case "device_type":
-			addTag("device_type", data.Device.Type)
-		case "firmware_version":
-			addTag("firmware_version", data.Device.FirmwareVersion)
-		case "model_name":
-			addTag("model_name", data.Device.ModelName)
-		case "model_family":
-			addTag("model_family", data.Device.ModelFamily)
-		case "serial_number":
-			addTag("serial_number", data.Device.SerialNumber)
+	tags := make([]string, 0, c.commonTags.Size())
+
+	taggedDevice := deviceWithTags(data.Device)
+	t := reflect.TypeOf(taggedDevice)
+	v := reflect.ValueOf(taggedDevice)
+	for idx := 0; idx < t.NumField(); idx++ {
+		field := t.Field(idx)
+		tagName := field.Tag.Get("name")
+		if !c.commonTags.Has(tagName) {
+			continue
+		}
+		fieldValue := v.Field(idx).String()
+		if fieldValue != "" {
+			tags = append(tags, tagName+":"+fieldValue)
 		}
 	}
 	return tags

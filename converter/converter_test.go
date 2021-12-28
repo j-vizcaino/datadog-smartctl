@@ -141,7 +141,6 @@ func TestConverter(t *testing.T) {
 		require.Equal(t, data.Device.Name, metrics.DeviceName)
 		require.ElementsMatch(t, []string{
 			"model_name:" + data.Device.ModelName,
-			"model_family:" + data.Device.ModelFamily,
 			"serial_number:" + data.Device.SerialNumber,
 			"firmware_version:" + data.Device.FirmwareVersion,
 			"device_name:" + data.Device.Name,
