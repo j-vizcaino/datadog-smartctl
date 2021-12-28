@@ -14,8 +14,8 @@ import (
 
 func getDataTranslator(cfg Config, devConfig DeviceConfig, submit *submitter.Submitter) poller.OnNewDataFunc {
 	conv := converter.New(
-		cfg.MetricPrefix,
-		converter.WithTags(cfg.DeviceTags...),
+		cfg.Statsd.MetricsPrefix,
+		converter.WithTags(cfg.Statsd.DeviceTags...),
 		converter.WithATASmartAttributes(devConfig.ATASmartAttributesMetrics...),
 		converter.WithATADeviceStats(devConfig.ATADeviceStatsMetrics...),
 		converter.WithNVMeHealthInfo(devConfig.NVMeHealthInfoMetrics...),
@@ -27,14 +27,14 @@ func getDataTranslator(cfg Config, devConfig DeviceConfig, submit *submitter.Sub
 	}
 }
 
-func getDeviceQuerier(cfg Config) poller.QueryDeviceFunc {
+func getDeviceQuerier(cfg SmartCtlConfig) poller.QueryDeviceFunc {
 	var opts []smartctl.CommandOption
 
 	if cfg.UseSudo {
 		opts = append(opts, smartctl.WithSudoEnabled())
 	}
-	if cfg.SmartctlBinary != "" {
-		opts = append(opts, smartctl.WithSmartctlBinary(cfg.SmartctlBinary))
+	if cfg.Binary != "" {
+		opts = append(opts, smartctl.WithSmartctlBinary(cfg.Binary))
 	}
 	smartCmd := smartctl.NewCommand(opts...)
 
@@ -53,8 +53,8 @@ func submitErrorLog(err error) {
 	log.Warn().Err(err).Msg("Submitter error")
 }
 
-func getSubmitter() (*submitter.Submitter, func()) {
-	statsdClient, err := statsd.NewBuffered("localhost:8125", 32)
+func getSubmitter(cfg StatsdConfig) (*submitter.Submitter, func()) {
+	statsdClient, err := statsd.NewBuffered(cfg.URL, 32)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to initialize statsd client")
 	}

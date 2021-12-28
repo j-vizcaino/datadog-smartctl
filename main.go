@@ -17,8 +17,8 @@ func main() {
 
 	cfg := MustLoadValidConfig("datadog-smartctl.yaml")
 
-	queryFunc := getDeviceQuerier(cfg)
-	submitter, submitterStop := getSubmitter()
+	queryFunc := getDeviceQuerier(cfg.Smartctl)
+	submitter, submitterStop := getSubmitter(cfg.Statsd)
 	submitter.Run(5 * time.Second)
 
 	appCtx, abort := context.WithCancel(context.Background())
@@ -28,9 +28,9 @@ func main() {
 		p := poller.New(queryFunc, getDataTranslator(cfg, dev, submitter), dev.Path)
 		log.Info().
 			Str("device", dev.Path).
-			Dur("interval", cfg.PollingInterval).
+			Dur("interval", cfg.Smartctl.PollingInterval).
 			Msg("Starting SMART data periodic poller")
-		p.Poll(appCtx, cfg.PollingInterval)
+		p.Poll(appCtx, cfg.Smartctl.PollingInterval)
 		pollers = append(pollers, p)
 	}
 

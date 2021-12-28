@@ -12,18 +12,36 @@ import (
 )
 
 var defaultConfig = Config{
-	PollingInterval: time.Minute,
-	SmartctlBinary:  "smartctl",
-	UseSudo:         false,
+	Smartctl: SmartCtlConfig{
+		PollingInterval: time.Minute,
+		Binary:          "smartctl",
+		UseSudo:         false,
+	},
+	Statsd: StatsdConfig{
+		URL:            "localhost:8125",
+		MetricsPrefix:  "smartctl.",
+		DeviceTags:     []string{"device_path"},
+		ReportInterval: 10 * time.Second,
+	},
 }
 
 type Config struct {
-	PollingInterval time.Duration  `yaml:"polling_interval"`
-	SmartctlBinary  string         `yaml:"smartctl_binary"`
-	UseSudo         bool           `yaml:"use_sudo"`
-	MetricPrefix    string         `yaml:"metric_prefix"`
-	DeviceTags      []string       `yaml:"device_tags"`
-	Devices         []DeviceConfig `yaml:"devices"`
+	Smartctl SmartCtlConfig `yaml:"smartctl"`
+	Statsd   StatsdConfig   `yaml:"statsd"`
+	Devices  []DeviceConfig `yaml:"devices"`
+}
+
+type StatsdConfig struct {
+	URL            string        `yaml:"url"`
+	DeviceTags     []string      `yaml:"device_tags"`
+	MetricsPrefix  string        `yaml:"metrics_prefix"`
+	ReportInterval time.Duration `yaml:"report_interval"`
+}
+
+type SmartCtlConfig struct {
+	PollingInterval time.Duration `yaml:"polling_interval"`
+	Binary          string        `yaml:"binary"`
+	UseSudo         bool          `yaml:"use_sudo"`
 }
 
 type DeviceConfig struct {
@@ -75,11 +93,16 @@ func (c Config) Validate() error {
 	}
 
 	addErrIf(len(c.Devices) == 0, "devices are not specified")
-	addErrIf(c.SmartctlBinary == "", "smartctl binary is empty")
-	addErrIf(c.MetricPrefix == "", "metric prefix is not specified")
-	addErrIf(c.PollingInterval < time.Second,
-		"polling interval must be at least one second (got %s)",
-		c.PollingInterval.String())
+	addErrIf(c.Smartctl.Binary == "", "smartctl binary is empty")
+	addErrIf(c.Smartctl.PollingInterval < time.Second,
+		"smartctl polling interval must be at least one second (got %s)",
+		c.Smartctl.PollingInterval.String())
+
+	addErrIf(c.Statsd.MetricsPrefix == "", "metric prefix is not specified")
+	addErrIf(c.Statsd.URL == "", "statsd URL is empty")
+	addErrIf(c.Statsd.ReportInterval < time.Second,
+		"statsd report interval must be at least one second (got %s)",
+		c.Statsd.ReportInterval.String())
 
 	for idx, dev := range c.Devices {
 		if dev.Path == "" {
