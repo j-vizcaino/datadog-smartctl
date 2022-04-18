@@ -15,8 +15,12 @@ import (
 
 func main() {
 	setupPrettyLogger()
+	cfgFilename := "datadog-smartctl.yaml"
+	if len(os.Args) >=2 {
+		cfgFilename = os.Args[1]
+	}
 
-	cfg := MustLoadValidConfig("datadog-smartctl.yaml")
+	cfg := MustLoadValidConfig(cfgFilename)
 
 	queryFunc := getDeviceQuerier(cfg.Smartctl)
 	submitter, submitterStop := getSubmitter(cfg.Statsd)
